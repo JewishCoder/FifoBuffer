@@ -1,15 +1,14 @@
 package com.fifobuffer.bufferWriters;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 
 public class FileBufferWriter implements IBufferWriter{
 
 	private FileOutputStream StreamWriter;
 
 	private String FileName;
+
+	private boolean IsDisposed;
 
 	public FileBufferWriter(String fileName) throws IOException{
 		if(fileName == null || fileName.isEmpty()){
@@ -43,6 +42,11 @@ public class FileBufferWriter implements IBufferWriter{
 
 	@Override
 	public void close() throws Exception{
+		if(IsDisposed){
+			return;
+		}
 
+		StreamWriter.close();
+		IsDisposed=true;
 	}
 }
