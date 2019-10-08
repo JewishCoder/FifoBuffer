@@ -1,6 +1,7 @@
 package com.fifobuffer.producers;
 
 import com.fifobuffer.IDisposable;
+import com.fifobuffer.StatisticsCollector;
 import com.fifobuffer.bufferWriters.IBufferWriter;
 import com.fifobuffer.valueConverters.SimpleValueConverter;
 
@@ -17,11 +18,13 @@ public class SimpleProducer implements IProducer<IBufferWriter> {
 		private Object SyncRoot;
 		private String Name;
 		private SimpleValueConverter Converter;
+		private StatisticsCollector Collector;
 
-		public ThreadCallBack(String name){
-			this.SyncRoot=new Object();
-			this.Name=name;
-			this.Converter=new SimpleValueConverter("#");
+		public ThreadCallBack(String name,StatisticsCollector collector){
+			this.SyncRoot = new Object();
+			this.Name = name;
+			this.Converter = new SimpleValueConverter("#");
+			this.Collector = collector;
 		}
 
 		@Override
@@ -32,6 +35,7 @@ public class SimpleProducer implements IProducer<IBufferWriter> {
 						if(BufferWriter == null) return;
 
 						BufferWriter.write(Converter.ToBytes(Name));
+						Collector.produceIncrement();
 						CanProduce = false;
 						//System.out.println(String.format("%s write to file", Name));
 					}
@@ -45,9 +49,9 @@ public class SimpleProducer implements IProducer<IBufferWriter> {
 	private ThreadCallBack AsyncProducer;
 	private boolean IsDisposed;
 
-	public SimpleProducer(String name){
+	public SimpleProducer(String name, StatisticsCollector collector){
 		this.Name = name;
-		this.AsyncProducer = new ThreadCallBack(name);
+		this.AsyncProducer = new ThreadCallBack(name, collector);
 		this.AsyncProducer.IsStarted = true;
 		this.ThreadProducer = new Thread(AsyncProducer, name);
 		this.ThreadProducer.start();
