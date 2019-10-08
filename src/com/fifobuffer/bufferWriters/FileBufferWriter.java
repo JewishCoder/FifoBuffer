@@ -5,10 +5,9 @@ import java.io.*;
 public class FileBufferWriter implements IBufferWriter{
 
 	private FileOutputStream StreamWriter;
-
 	private String FileName;
-
 	private boolean IsDisposed;
+	private byte[] LineSeparatorBytes;
 
 	public FileBufferWriter(String fileName) throws IOException{
 		if(fileName == null || fileName.isEmpty()){
@@ -23,12 +22,15 @@ public class FileBufferWriter implements IBufferWriter{
 		}
 		this.FileName = fileName;
 		this.StreamWriter = new FileOutputStream(FileName, true);
+		this.LineSeparatorBytes = System.lineSeparator().getBytes();
 	}
 
 	@Override
 	public synchronized void write(byte[] data){
 		try{
 			StreamWriter.write(data);
+			StreamWriter.write(LineSeparatorBytes);
+			System.out.println("Data written to file");
 		} catch(IOException e){
 			e.printStackTrace();
 		}

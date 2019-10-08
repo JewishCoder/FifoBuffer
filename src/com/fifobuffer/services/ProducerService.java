@@ -3,6 +3,7 @@ package com.fifobuffer.services;
 import com.fifobuffer.IDisposable;
 import com.fifobuffer.producers.IProducer;
 
+import java.beans.Expression;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -13,6 +14,7 @@ import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class ProducerService<T> implements IDisposable{
@@ -41,44 +43,35 @@ public class ProducerService<T> implements IDisposable{
 	private Timer Trigger;
 	private Timer TimerToDeath;
 	private boolean IsDisposed;
-	private Supplier<IProducer<T>> Factory;
+	private Function<String,IProducer<T>> Factory;
 	private ArrayList<IProducer<T>> Producers;
 
 
 	public ProducerService(
 			int count,
-			long frequencyNanos,
-			long lifeTimeNanos,
+			long frequencyMills,
+			long lifeTimeMills,
 			T produceData,
-			Supplier<IProducer<T>> producerFactory){
+			Function<String,IProducer<T>> producerFactory){
 		this.Count = count;
-		this.Frequency = frequencyNanos;
+		this.Frequency = frequencyMills;
 		this.Factory = producerFactory;
-		this.LifeTime = lifeTimeNanos;
+		this.LifeTime =  lifeTimeMills;
 		this.Producers = new ArrayList<IProducer<T>>();
 		this.ProduceData=produceData;
 	}
 
-	public void startProducing(){
+	public void startProducing() throws Exception{
 		Producers.clear();
 		for(var i=0; i < Count; i++){
-			Producers.add(Factory.get());
+			Producers.add(Factory.apply(String.format("Producer %d", i + 1)));
 		}
 		Trigger = new Timer("ProducerTrigger");
 		Trigger.schedule(new TimerCallBack(this),0, Frequency);
 
-		var timeOfDeath= new Date().toInstant().plus(LifeTime, ChronoUnit.NANOS);
-		TimerToDeath = new Timer("DestroyTrigger");
-		TimerToDeath.schedule(new TimerTask(){
-			@Override
-			public void run(){
-				try{
-					close();
-				} catch(Exception e){
-					e.printStackTrace();
-				}
-			}
-		},Date.from(timeOfDeath));
+		Thread.sleep(LifeTime);
+
+		close();
 	}
 
 	@Override
@@ -91,8 +84,9 @@ public class ProducerService<T> implements IDisposable{
 		if(IsDisposed) return;
 
 		Trigger.cancel();
-		TimerToDeath.cancel();
 		Trigger = null;
-		TimerToDeath = null;
+		for(var i=0;i<Producers.size();i++){
+			Producers.get(i).close();
+		}
 	}
 }

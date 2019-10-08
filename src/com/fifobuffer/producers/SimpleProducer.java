@@ -1,29 +1,75 @@
 package com.fifobuffer.producers;
 
+import com.fifobuffer.IDisposable;
 import com.fifobuffer.bufferWriters.IBufferWriter;
+import com.fifobuffer.valueConverters.SimpleValueConverter;
 
 import java.util.Date;
 
-public class SimpleProducer implements IProducer<IBufferWriter>{
+public class SimpleProducer implements IProducer<IBufferWriter> {
+
+	class ThreadCallBack implements Runnable{
+
+		public boolean CanProduce;
+		public IBufferWriter BufferWriter;
+		public boolean IsStarted;
+
+		private Object SyncRoot;
+		private String Name;
+		private SimpleValueConverter Converter;
+
+		public ThreadCallBack(String name){
+			this.SyncRoot=new Object();
+			this.Name=name;
+			this.Converter=new SimpleValueConverter("#");
+		}
+
+		@Override
+		public void run(){
+			while(IsStarted){
+			synchronized(SyncRoot){
+					if(CanProduce){
+						if(BufferWriter == null) return;
+
+						BufferWriter.write(Converter.ToBytes(Name));
+						CanProduce = false;
+						//System.out.println(String.format("%s write to file", Name));
+					}
+				}
+			}
+		}
+	}
 
 	private String Name;
-	private Thread T;
+	private Thread ThreadProducer;
+	private ThreadCallBack AsyncProducer;
+	private boolean IsDisposed;
 
 	public SimpleProducer(String name){
-		Name = name;
-		T=new Thread(new Runnable(){
-			@Override
-			public void run(){
-			}
-		});
+		this.Name = name;
+		this.AsyncProducer = new ThreadCallBack(name);
+		this.AsyncProducer.IsStarted = true;
+		this.ThreadProducer = new Thread(AsyncProducer, name);
+		this.ThreadProducer.start();
 	}
 
 	@Override
 	public void produce(IBufferWriter args){
-		if(args == null) return;
-		var currentDate = new Date().toString();
-		var data = String.format("%s - %s |",Name, currentDate);
+		AsyncProducer.BufferWriter = args;
+		AsyncProducer.CanProduce = true;
+	}
 
-		args.write(data.getBytes());
+	@Override
+	public boolean getIsDisposed(){
+		return IsDisposed;
+	}
+
+	@Override
+	public void close() throws Exception{
+		if(IsDisposed) return;
+		AsyncProducer.CanProduce = false;
+		AsyncProducer.IsStarted = false;
+		ThreadProducer.interrupt();
+		IsDisposed = true;
 	}
 }
